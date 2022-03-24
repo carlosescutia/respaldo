@@ -1,0 +1,10 @@
+# credentials for postgre database
+PG_HOST="localhost"
+PG_USER="user"
+PG_DB="db"
+
+# credentials for mysql database
+MY_HOST="localhost"
+MY_DB="db"
+MY_PWD="pwd"
+

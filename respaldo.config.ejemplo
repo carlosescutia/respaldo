@@ -1,0 +1,24 @@
+################################
+# configure here your parameters
+
+# where to store logs and mount backups
+workdir="/home/admon/respaldos"
+
+# backup parameters
+compression="lz4"
+
+# borg server parameters
+# borg user password not needed since 
+# we're using ssh key based authentication
+backupuser="borgbackup"
+backupserver="172.31.100.109"
+backupport="22"
+backupdir="/home/borgbackup/"
+
+# backup retention policy
+resp_dia=7
+resp_sem=4
+resp_mes=3
+
+# end of config
+################################
