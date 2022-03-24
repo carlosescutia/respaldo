@@ -188,7 +188,7 @@ mount () {
     if [[ ! -e $mountpoint ]]; then
         mkdir -p $mountpoint
     fi
-    $BORG mount ssh://$backupuser@$backupserver:$backupport/$backupdir/$project/ $mountpoint
+    $BORG mount -o allow_other -o uid=1000 ssh://$backupuser@$backupserver:$backupport/$backupdir/$project/ $mountpoint
     status=$?
     if [ ${status} -eq 0 ] ; then
         mensaje "Respaldos accesibles en $mountpoint"
@@ -210,6 +210,17 @@ desmontar () {
     fi
 }
 
+# restores a backup 
+restaurar () {
+    cd $projectdir > /dev/null
+    $BORG extract --list --progress ssh://$backupuser@$backupserver:$backupport/$backupdir/$project::$archive 
+    status=$?
+    if [ ${status} -eq 0 ] ; then
+        mensaje "Respaldo $archive restaurado en ruta: $projectdir"
+    else
+        mensaje "Restauración de respaldo terminado con advertencia o error. Verifique el mensaje anterior."
+    fi
+}
 
 # shows information about the backup repository
 info () {
@@ -241,10 +252,11 @@ Usage:
 Options:
     -h, --help ...................... Show this help and quit.
     -p, --project ................... Name of project. Required.
-    -d, --projectdir ................ Directory of project. Required for backup and dump commands.
+    -d, --projectdir ................ Directory of project. Required for backup, dump and restore commands.
     -pg --postgres .................. Project has postgres database
     -my --mysql ..................... Project has mysql database
     -dbc --db_container ............. Name of database container
+    -ar --archive ................... Archive to restore. Required for restore command.
 
 Available commands:
     init ............................ Initialize the backup repository
@@ -253,6 +265,7 @@ Available commands:
     list ............................ List existing backups
     mount ........................... Mount repository on filesystem to restore
     umount .......................... Unmount repository
+    restore ......................... Restore a backup 
     info ............................ Show statistics about backups
     prune ........................... Remove old backups 
 
@@ -292,6 +305,10 @@ while [ -n "$1" ] ; do
             shift
             dbcontainer="$1"
             ;;
+        -ar | --archive)
+            shift
+            archive="$1"
+            ;;
         *)
             comando="$1"
             ;;
@@ -304,7 +321,7 @@ if [ -z $project ] ; then
     missingfields=1
 fi
 
-if [ -z $projectdir ] && [[ $comando == @(backup|dump) ]] ; then
+if [ -z $projectdir ] && [[ $comando == @(backup|dump|restore) ]] ; then
     echo "Error: no se ha especificado el directorio del proyecto"
     missingfields=1
 fi
@@ -317,6 +334,11 @@ fi
 
 if [ $postgres ] && [ $mysql ] && [[ $comando == @(backup|dump) ]] ; then
     echo "No se puede especificar más de una opción de base de datos"
+    missingfields=1
+fi
+
+if [ -z $archive ] && [[ $comando == @(restore) ]] ; then
+    echo "Error: no se ha especificado el respaldo a restaurar"
     missingfields=1
 fi
 
@@ -376,6 +398,9 @@ case $comando in
         ;;
     umount)
         desmontar
+        ;;
+    restore)
+        restaurar
         ;;
     info)
         list
