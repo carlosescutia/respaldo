@@ -13,7 +13,7 @@ exec 3>&1 4>&2
 # configure here your parameters
 
 # where to store logs and mount backups
-workdir="/home/iplaneg/respaldos"
+workdir="/home/admon/respaldos"
 
 # backup parameters
 compression="lz4"
@@ -223,7 +223,6 @@ Options:
     -d, --projectdir ................ Directory of project. Required for backup and dump commands.
     -pg --postgres .................. Project has postgres database
     -my --mysql ..................... Project has mysql database
-    -nodb --nodb .................... Project has no database
     -dbc --db_container ............. Name of database container
 
 Available commands:
@@ -246,7 +245,6 @@ trap "signal_exit INT" INT
 
 ####### Main
 missingfields=0
-dbopts=0
 
 # Options
 while [ -n "$1" ] ; do
@@ -264,16 +262,10 @@ while [ -n "$1" ] ; do
             projectdir="$1"
             ;;
         -pg | --postgres)
-            ((dbopts++))
             postgres=1
             ;;
         -my | --mysql)
-            ((dbopts++))
             mysql=1
-            ;;
-        -nodb | --nodb)
-            ((dbopts++))
-            nodb=1
             ;;
         -dbc | --dbcontainer)
             shift
@@ -302,12 +294,7 @@ if [ ! -d $projectdir ] ; then
     missingfields=1
 fi
 
-if [ -z $postgres ] && [ -z $mysql ] && [ -z $nodb ] && [[ $comando == @(backup|dump) ]] ; then
-    echo "No se ha especificado opción de base de datos (postgres, mysql, nodb)"
-    missingfields=1
-fi
-
-if [ $dbopts -gt 1 ] && [[ $comando == @(backup|dump) ]] ; then
+if [ $postgres ] && [ $mysql ] && [[ $comando == @(backup|dump) ]] ; then
     echo "No se puede especificar más de una opción de base de datos"
     missingfields=1
 fi
@@ -343,11 +330,17 @@ case $comando in
     backup)
         startlog
         mensaje "** Respaldo de proyecto iniciado **"
-        desmontar
-        cleardbs
-        dump
+        if grep -qs '$mountpoint ' /proc/mounts ; then
+            desmontar
+        fi
+        if [ $postgres ] || [ $mysql ] ; then
+            cleardbs
+            dump
+        fi
         backup
-        cleardbs
+        if [ $postgres ] || [ $mysql ] ; then
+            cleardbs
+        fi
         mensaje "** Respaldo de proyecto terminado **"
         endlog
         ;;
@@ -370,7 +363,9 @@ case $comando in
         ;;
     prune)
         startlog
-        desmontar
+        if grep -qs'$mountpoint ' /proc/mounts ; then
+            desmontar
+        fi
         prune
         endlog
         ;;
