@@ -1,6 +1,9 @@
 ################################
 # configure here your parameters
 
+# borg binary
+BORG=/usr/bin/borg
+
 # where to store logs and mount backups
 workdir="/home/admon/respaldos"
 
