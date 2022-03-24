@@ -176,6 +176,15 @@
             ```
 
 ## Misc
+* Evitar que git reporte cambios en modos de archivos (chmod)
+    ```
+    git config --local core.filemode false
+    ```
+
+* Evitar que git reporte archivos fuera del repositorio
+    ```
+    git config --local status.showUntrackedFiles no
+    ```
 
 * Utilizar namespaces para evitar conflictos en nombre de proyecto. Ej:
     ```
