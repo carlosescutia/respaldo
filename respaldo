@@ -13,7 +13,7 @@ exec 3>&1 4>&2
 # configure here your parameters
 
 # where to store logs and mount backups
-workdir="/home/admon/respaldos"
+workdir="/home/administrador/respaldos"
 
 # backup parameters
 compression="lz4"
@@ -130,7 +130,7 @@ dump () {
             status=$?
         else
             source $workdir/credenciales.$project
-            mysqldump -uroot -p$MY_PWD $MY_DB --single-transaction --quick --lock-tables=false > /backup/db_$MY_DB\_`date +%d%b%y`.mysql
+            mysqldump -h$MY_HOST -uroot -p$MY_PWD $MY_DB --single-transaction --quick --lock-tables=false > ./backup/db_$MY_DB\_`date +%d%b%y`.mysql
             status=$?
         fi
     fi
