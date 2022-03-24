@@ -1,0 +1,368 @@
+#!/bin/bash
+#
+# respaldo
+# Command line interface to perform borg backups
+# Carlos Escutia
+# last modified: 17/08/21 dd/mm/yy
+#
+
+# Save file descriptors so they can be restored
+exec 3>&1 4>&2
+
+################################
+# configure here your parameters
+
+# where to store logs and mount backups
+workdir="/home/carlos/respaldos"
+
+# backup parameters
+compression="lz4"
+
+# borg server parameters
+# borg user password not needed since 
+# we're using ssh key based authentication
+backupuser="borgbackup"
+backupserver="172.31.100.109"
+backupport="22"
+backupdir="/home/borgbackup/"
+
+# backup retention policy
+resp_dia=7
+resp_sem=4
+resp_mes=3
+
+# end of config
+################################
+
+PROGNAME=${0##*/}
+VERSION="0.1"
+
+clean_up () { # Perform pre-exit housekeeping
+    exec 2>&4 1>&3
+    return
+}
+
+error_exit () {
+    echo -e "${PROGNAME}: ${1:-"Unknown error"}" >&2
+    clean_up
+    exit 1
+}
+
+graceful_exit () {
+    clean_up
+    exit
+}
+
+signal_exit() { # Handle trapped signals
+    case $1 in
+        INT)
+            error_exit "Program interrupted by user" 
+            ;;
+        TERM)
+            echo -e "\n$PROGNAME: Program terminated" >&2
+            graceful_exit 
+            ;;
+        *)
+            error_exit "$PROGNAME: Terminating on unknown signal"
+            ;;
+    esac
+}
+
+usage () {
+    echo -e "$PROGNAME [OPTION] [COMMAND]"
+}
+
+startlog () {
+    exec > >(tee -a $logfile) 2>&1
+}
+
+endlog () {
+    exec 2>&4 1>&3
+}
+
+# mensaje "Hola" will print: 16/08/2021 14:38:27 Hola
+mensaje() {
+    printf "%s %s\n" "$( date '+%d/%m/%Y %H:%M:%S' )" "$*" 
+}
+
+# initializes project repository in remote server
+init () {
+    mensaje "** Inicializando repositorio **"
+    borg init -e repokey-blake2 ssh://$backupuser@$backupserver:$backupport/$backupdir/$project/
+    status=$?
+    if [ ${status} -eq 0 ] ; then
+        mensaje "** Repositorio inicializado en servidor $backupserver listo para respaldar proyecto $project **"
+    else
+        mensaje "** Inicialización terminada con advertencia o error. Verifique el mensaje anterior. **"
+    fi
+}
+
+# backs up project to remote server
+backup () {
+    mensaje "Iniciando respaldo de archivos del proyecto"
+    cd $projectdir > /dev/null
+    borg create --stats --compress $compression ssh://$backupuser@$backupserver:$backupport/$backupdir/$project/::`echo $project`_`date +%d-%m-%Y_%H-%M` ./ 
+    status=$?
+    if [ ${status} -eq 0 ] ; then
+        mensaje "Respaldo de archivos terminado."
+    else
+        mensaje "Respaldo de archivos terminado con advertencia o error. Verifique el mensaje anterior."
+    fi
+}
+
+# dumps postgres database in backup/ directory so it can be backed up by borgbackup
+pgdump () {
+    mensaje "Iniciando volcado de base de datos postgresql"
+    cd $projectdir > /dev/null
+    /usr/local/bin/docker-compose exec -T $dbcontainer sh -c 'pg_dump -U $POSTGRES_USER --format=c --file=/backup/db_$POSTGRES_DB\_`date +%d%b%y`.pgsql $POSTGRES_DB'
+    status=$?
+    ls -lrth $projectdir/backup
+    if [ ${status} -eq 0 ] ; then
+        mensaje "Volcado de base de datos Postgresql terminado."
+    else
+        mensaje "Volcado de base de datos Postgresql terminado con advertencia o error. Verifique el mensaje anterior."
+    fi
+}
+
+# dumps mysql database in backup/ directory so it can be backed up by borgbackup
+mydump () {
+    mensaje "Iniciando volcado de base de datos mysql"
+    cd $projectdir > /dev/null
+    /usr/local/bin/docker-compose exec -T $dbcontainer sh -c 'mysqldump -uroot -p$MYSQL_ROOT_PASSWORD $MYSQL_DATABASE --single-transaction --quick --lock-tables=false > /backup/db_$MYSQL_DATABASE\_`date +%d%b%y`.mysql'
+    status=$?
+    ls -lrth $projectdir/backup
+    if [ ${status} -eq 0 ] ; then
+        mensaje "Volcado de base de datos MySQL terminado."
+    else
+        mensaje "Volcado de base de datos MySQL terminado con advertencia o error. Verifique el mensaje anterior."
+    fi
+}
+
+# clears database dumps
+cleardbs () {
+    mensaje "Iniciando eliminación de volcados de bases de datos"
+    ls -lrth $projectdir/backup
+    rm -f $projectdir/backup/*sql 
+    status=$?
+    ls -lrth $projectdir/backup
+    if [ ${status} -eq 0 ] ; then
+        mensaje "Eliminación de volcados de bases de datos terminado."
+    else
+        mensaje "Eliminación de volcados de bases de datos terminado con advertencia o error. Verifique el mensaje anterior."
+    fi
+}
+
+# lists backups on remote server
+list () {
+    echo "Listado de respaldos:"
+    borg list -v ssh://$backupuser@$backupserver:$backupport/$backupdir/$project/ 
+}
+
+# mounts remote backup to restore
+mount () {
+    if [[ ! -e $mountpoint ]]; then
+        mkdir -p $mountpoint
+    fi
+    borg mount ssh://$backupuser@$backupserver:$backupport/$backupdir/$project/ $mountpoint
+    status=$?
+    if [ ${status} -eq 0 ] ; then
+        mensaje "Respaldos accesibles en $mountpoint"
+    else
+        mensaje "Montado de respaldos terminado con advertencia o error. Verifique el mensaje anterior."
+    fi
+}
+
+# unmounts remote backup
+desmontar () {
+    umount $mountpoint
+    status=$?
+    if [ ${status} -eq 0 ] ; then
+        mensaje "Respaldos desmontados de $mountpoint"
+    else
+        mensaje "Desmontado de respaldos terminado con advertencia o error. Verifique el mensaje anterior."
+    fi
+}
+
+
+# shows information about the backup repository
+info () {
+    echo "Información del repositorio de respaldo:"
+    borg info ssh://$backupuser@$backupserver:$backupport/$backupdir/$project/
+}
+
+# cleans old backups
+prune () {
+    mensaje "** Iniciando limpieza de repositorio **"
+    borg prune --stats --progress --list --prefix $project\_ --show-rc --keep-daily $resp_dia --keep-weekly $resp_sem --keep-monthly $resp_mes ssh://$backupuser@$backupserver:$backupport/$backupdir/$project/ 
+    status=$?
+    if [ ${status} -eq 0 ] ; then
+        mensaje "** Limpieza de repositorio terminada. **"
+    else
+        mensaje "** Limpieza de repositorio terminada con advertencia o error. Verifique el mensaje anterior. **"
+    fi
+}
+
+help_message () {
+        cat << EOF
+
+$PROGNAME $VERSION
+Command line interface to perform borg backups
+
+Usage:
+    $(usage)
+
+Options:
+    -h, --help ...................... Show this help and quit.
+    -p, --project ................... Name of project. Required.
+    -d, --projectdir ................ Directory of project. Required for backuppg, backupmy, pgdump and mydump commands.
+    -c, --container ................. Database container. Required for backuppg, backupmy, pgdump and mydump commands.
+
+Available commands:
+    init ............................ Initialize the backup repository
+    backuppg ........................ Backup a project with postgres database
+    backupmy ........................ Backup a project with mysql database
+    pgdump .......................... Dumps postgres database in backup/ directory
+    mydump .......................... Dumps mysql database in backup/ directory
+    list ............................ List existing backups
+    mount ........................... Mount repository on filesystem to restore
+    umount .......................... Unmount repository
+    info ............................ Show statistics about backups
+    prune ........................... Remove old backups 
+
+EOF
+exit 1
+}
+
+# Trap signals
+trap "signal_exit TERM" TERM HUP
+trap "signal_exit INT" INT
+
+####### Main
+missingfields=0
+
+# Options
+while [ -n "$1" ] ; do
+    case $1 in
+        -h | --help)
+            help_message
+            graceful_exit
+            ;;
+        -p | --project)
+            shift
+            project="$1"
+            ;;
+        -d | --projectdir)
+            shift
+            projectdir="$1"
+            ;;
+        -c | --container)
+            shift
+            dbcontainer="$1"
+            ;;
+        *)
+            comando="$1"
+            ;;
+    esac
+    shift
+done
+
+if [ -z $project ] ; then
+    echo "Error: no se ha especificado el nombre del proyecto"
+    missingfields=1
+fi
+
+if [ -z $projectdir ] && [[ $comando == @(backuppg|backupmy|pgdump|mydump) ]] ; then
+    echo "Error: no se ha especificado el directorio del proyecto"
+    missingfields=1
+fi
+
+cd / > /dev/null
+if [ ! -d $projectdir ] ; then
+    echo "Error: No existe el directorio de proyecto especificado. Utilice ruta absoluta o ~/ruta ."
+    missingfields=1
+fi
+
+if [ -z $dbcontainer ] && [[ $comando == @(backuppg|backupmy|pgdump|mydump) ]] ; then
+    echo "Error: no se ha especificado el contenedor de base de datos"
+    missingfields=1
+fi
+
+if [ -z $comando ] ; then
+    echo "Error: no se ha especificado el comando a ejecutar"
+    missingfields=1
+fi
+
+if [ $missingfields = 1 ] ; then
+    help_message
+    graceful_exit
+fi
+
+# Use $project parameter to define depending variables
+
+# passphrase to gain access to backup
+export BORG_PASSPHRASE=$project
+
+# logs
+logfile=$workdir/$project.log
+
+# mountpoint for inspecting backups
+mountpoint="$workdir/mnt/$project"
+
+# Commands
+case $comando in
+    init)
+        startlog
+        init
+        endlog
+        ;;
+    backuppg)
+        startlog
+        mensaje "** Respaldo de proyecto iniciado **"
+        desmontar
+        cleardbs
+        pgdump
+        backup
+        mensaje "** Respaldo de proyecto terminado **"
+        endlog
+        ;;
+    backupmy)
+        startlog
+        mensaje "** Respaldo de proyecto iniciado **"
+        desmontar
+        cleardbs
+        mydump
+        backup
+        mensaje "** Respaldo de proyecto terminado **"
+        endlog
+        ;;
+    pgdump)
+        pgdump
+        ;;
+    mydump)
+        mydump
+        ;;
+    list)
+        list
+        ;;
+    mount)
+        mount
+        ;;
+    umount)
+        desmontar
+        ;;
+    info)
+        list
+        echo
+        info
+        ;;
+    prune)
+        startlog
+        desmontar
+        prune
+        endlog
+        ;;
+    *)
+        help_message
+        graceful_exit
+        ;;
+esac
