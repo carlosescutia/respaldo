@@ -14,7 +14,7 @@
     sudo apt-get install expect
     ```
 
-    * Basarse en script de ejemplo 'login.backupserver.ejemplo', renombrar a login.backupserver
+    * Basarse en script de ejemplo 'ejemplo_configs/login.backupserver.ejemplo', renombrar a login.backupserver
         ```
         #!/usr/bin/expect
         # script para automatizar conexion mediante vpn snx
@@ -98,7 +98,7 @@
     ```
 
 * Configurar script
-    * Basarse en archivo 'respaldo.config.ejemplo', renombrar a 'respaldo.config'
+    * Basarse en archivo 'ejemplo_configs/respaldo.config.ejemplo', renombrar a 'respaldo.config'
 
         ```
         ################################
@@ -131,7 +131,7 @@
         ```
 
 * Configurar credenciales de base de datos en caso de no usar docker. 
-    * Basarse en archivo 'credenciales.proyecto.ejemplo', renombrar a 'credenciales.proyecto'
+    * Basarse en archivo 'ejemplo_configs/credenciales.proyecto.ejemplo', renombrar a 'credenciales.proyecto'
 
         ```
         # credentials for postgre database
@@ -147,7 +147,7 @@
 
 
 * Programar respaldo y depuración con cron
-    * Basarse en script que integra acceso a la vpn 'backup.proyecto.ejemplo', renombrar a 'backup.proyecto'
+    * Basarse en script que integra acceso a la vpn 'ejemplo_configs/backup.proyecto.ejemplo', renombrar a 'backup.proyecto'
         ```
         #!/bin/bash
         # script para automatizar acceso por vpn a servidor de respaldos y ejecución del respaldo
