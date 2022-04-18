@@ -1,5 +1,6 @@
-# Respaldo de proyecto en servidor de respaldos remoto
-#
+# Respaldo
+Respaldo de proyecto en servidor de respaldos remoto
+
 
 
 ## Configurar acceso al servidor de respaldos
@@ -15,6 +16,9 @@
     ```
 
     * Basarse en script de ejemplo 'ejemplo_configs/login.backupserver.ejemplo', renombrar a login.backupserver
+        ```
+        cp ejemplo_configs/login.backupserver.ejemplo ./login.backupserver
+        ```
         ```
         #!/usr/bin/expect
         # script para automatizar conexion mediante vpn snx
@@ -154,13 +158,13 @@
 
 
 * Inicializar repositorio del proyecto
-        ```
-        ~/respaldos/respaldo -p proyecto init
-        ```
+    ```
+    ~/respaldos/respaldo -p proyecto init 
+    ```
 
 
 * Programar respaldo y depuración con cron
-    * Basarse en scripts que integran acceso a la vpn 'ejemplo_configs/backup.proyecto.ejemplo' y 'ejemplo_configs/prune.proyecto.ejemplo', renombrar a 'backup.proyecto' y 'prune.proyecto', respectivamente.
+    * Basarse en scripts que integran acceso a la vpn 'ejemplo_configs/backup.proyecto.ejemplo' y 'ejemplo_configs/prune.proyecto.ejemplo', renombrar a 'backup.proyecto' y 'prune.proyecto', respectivamente y otorgar permisos de ejecución.
         ```
         cp ejemplo_configs/backup.proyecto.ejemplo ./backup.proyecto
         cp ejemplo_configs/prune.proyecto.ejemplo ./prune.proyecto
