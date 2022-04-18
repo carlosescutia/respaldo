@@ -1,0 +1,8 @@
+#!/bin/bash
+# script para automatizar acceso por vpn a servidor de respaldos y ejecución de limpieza del proyecto
+# sustituir rutas correctas, proyecto.
+# ajustar herramienta vpn (snx en este caso).
+
+/usr/bin/expect /home/admon/respaldos/login.backupserver
+/home/admon/respaldos/respaldo -p proyecto prune
+/usr/bin/snx -d

@@ -92,13 +92,17 @@
         git pull        // actualizar a ultima version del script
         ```
 
-* Otorgar permisos de ejecución a scripts
+* Otorgar permisos de ejecución al script
     ```
-    chmod a+x respaldo backup.proyecto
+    chmod a+x respaldo 
     ```
 
 * Configurar script
     * Basarse en archivo 'ejemplo_configs/respaldo.config.ejemplo', renombrar a 'respaldo.config'
+
+        ```
+        cp ejemplo_configs/respaldo.config.ejemplo ./respaldo.config
+        ```
 
         ```
         ################################
@@ -132,6 +136,9 @@
 
 * Configurar credenciales de base de datos en caso de no usar docker. 
     * Basarse en archivo 'ejemplo_configs/credenciales.proyecto.ejemplo', renombrar a 'credenciales.proyecto'
+        ```
+        cp ejemplo_configs/credenciales.proyecto.ejemplo ./credenciales.proyecto
+        ```
 
         ```
         # credentials for postgre database
@@ -146,8 +153,20 @@
         ```
 
 
+* Inicializar repositorio del proyecto
+        ```
+        ~/respaldos/respaldo -p proyecto init
+        ```
+
+
 * Programar respaldo y depuración con cron
-    * Basarse en script que integra acceso a la vpn 'ejemplo_configs/backup.proyecto.ejemplo', renombrar a 'backup.proyecto'
+    * Basarse en scripts que integran acceso a la vpn 'ejemplo_configs/backup.proyecto.ejemplo' y 'ejemplo_configs/prune.proyecto.ejemplo', renombrar a 'backup.proyecto' y 'prune.proyecto', respectivamente.
+        ```
+        cp ejemplo_configs/backup.proyecto.ejemplo ./backup.proyecto
+        cp ejemplo_configs/prune.proyecto.ejemplo ./prune.proyecto
+        chmod a+x backup.proyecto prune.proyecto
+        ```
+
         ```
         #!/bin/bash
         # script para automatizar acceso por vpn a servidor de respaldos y ejecución del respaldo
@@ -159,6 +178,17 @@
         /usr/bin/snx -d
         ```
 
+        ```
+        #!/bin/bash
+        # script para automatizar acceso por vpn a servidor de respaldos y ejecución de limpieza del proyecto
+        # sustituir rutas correctas, proyecto.
+        # ajustar herramienta vpn (snx en este caso).
+
+        /usr/bin/expect /home/admon/respaldos/login.backupserver
+        /home/admon/respaldos/respaldo -p proyecto prune
+        /usr/bin/snx -d
+        ```
+
     * Agregar programación a cron
         ```
         sudo crontab -e
@@ -167,13 +197,19 @@
             # backup projects
             #
             # proyecto.servidor. Tuesday to Saturday at 1:00 am (end of working day)
-                0 1 * * 2-6 backup.proyecto
+                0 1 * * 2-6 ~/respaldos/backup.proyecto
 
             # prune backups
             #
             # proyecto.servidor. Every Sunday at 1:00 am
-                0 1 * * 7 ~/respaldos/respaldo -p proyecto prune
+                0 1 * * 7 ~/respaldos/prune.proyecto
             ```
+
+
+* Consultar bitácora de respaldos del proyecto
+        ```
+        cat ~/respaldos/proyecto.log
+        ```
 
 ## Misc
 * Evitar que git reporte cambios en modos de archivos (chmod)
