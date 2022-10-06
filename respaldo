@@ -188,7 +188,7 @@ mount () {
     if [[ ! -e $mountpoint ]]; then
         mkdir -p $mountpoint
     fi
-    $BORG mount -o allow_other -o uid=1000 ssh://$backupuser@$backupserver:$backupport/$backupdir/$project/ $mountpoint
+    $BORG mount -o uid=1000 ssh://$backupuser@$backupserver:$backupport/$backupdir/$project/ $mountpoint
     status=$?
     if [ ${status} -eq 0 ] ; then
         mensaje "Respaldos accesibles en $mountpoint"
