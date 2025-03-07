@@ -137,7 +137,7 @@ dump () {
     cd $projectdir > /dev/null
     if [ $postgres ] ; then
         if [ $dbcontainer ] ; then
-            /usr/local/bin/docker-compose exec -T $dbcontainer sh -c 'pg_dump -U $POSTGRES_USER --format=c --file=/backup/db_$POSTGRES_DB\_`date +%d%b%y`.pgsql $POSTGRES_DB'
+            /usr/local/bin/docker-compose exec -T $dbcontainer sh -c 'pg_dump -U $POSTGRES_USER --format=c --no-owner --no-privileges --file=/backup/db_$POSTGRES_DB\_`date +%d%b%y`.pgsql $POSTGRES_DB'
             status=$?
         else
             source $workdir/credenciales.$project
